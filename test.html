@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Parallel Coordinates Plot</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h2>Parallel Coordinates Plot - Experiment with Axis Reordering</h2>
+    <p>Select a grouping focus:</p>
+    <button onclick="loadDemographicFocus()">Demographic Focus</button>
+    <button onclick="loadFinancialFocus()">Financial Focus</button>
+    <div id="parallel-coordinates" style="width: 100%; height: 600px;"></div>
+
+    <script>
+        const jsonUrl = 'https://raw.githubusercontent.com/aloofzebra03/DV_Assignment_2/refs/heads/main/df_merged_json.json';
+
+        // Load JSON data from GitHub
+        async function loadJSON(url) {
+            const response = await fetch(url);
+            return await response.json();
+        }
+
+        // Define dimensions for Demographic and Financial focus
+        const demographicFocus = [
+            { label: 'Country', valuesKey: 'Country', isCategorical: true },
+            { label: 'Province', valuesKey: 'Province', isCategorical: true },
+            { label: 'City', valuesKey: 'City', isCategorical: true },
+            { label: 'Gender', valuesKey: 'Gender', isCategorical: true },
+            { label: 'Education', valuesKey: 'Education', isCategorical: true },
+            { label: 'Marital Status', valuesKey: 'Marital Status', isCategorical: true },
+            { label: 'CLV', valuesKey: 'CLV', isCategorical: false },
+            { label: 'Total Flights', valuesKey: 'TotalFlights', isCategorical: false }
+        ];
+
+        const financialFocus = [
+            { label: 'Salary ($)', valuesKey: 'Salary', isCategorical: false, addPrefix: '$' },
+            { label: 'CLV', valuesKey: 'CLV', isCategorical: false },
+            { label: 'Points Accumulated', valuesKey: 'PointsAccumulated', isCategorical: false },
+            { label: 'Points Redeemed', valuesKey: 'PointsRedeemed', isCategorical: false },
+            { label: 'Dollar Cost Points Redeemed', valuesKey: 'DollarCostPointsRedeemed', isCategorical: false }
+        ];
+
+        // Helper function to process data based on column type
+        function processData(data, columnInfo) {
+            if (columnInfo.isCategorical) {
+                // Handle categorical data by mapping categories to unique values
+                const uniqueValues = [...new Set(data.map(row => row[columnInfo.valuesKey]))];
+                const valueMap = uniqueValues.reduce((map, val, index) => {
+                    map[val] = index;
+                    return map;
+                }, {});
+                
+                return {
+                    values: data.map(row => valueMap[row[columnInfo.valuesKey]]),
+                    tickvals: Object.values(valueMap),
+                    ticktext: Object.keys(valueMap)
+                };
+            } else {
+                // Handle numerical data without scaling, add a prefix if specified (e.g., for Salary)
+                const values = data.map(row => row[columnInfo.valuesKey]);
+                return {
+                    values: values,
+                    range: [Math.min(...values), Math.max(...values)],
+                    ticktext: columnInfo.addPrefix ? values.map(val => `${columnInfo.addPrefix}${val}`) : null
+                };
+            }
+        }
+
+        // Convert JSON data to Plotly dimensions format with both categorical and numerical handling
+        function createDimensions(data, focus) {
+            return focus.map(axis => {
+                const processedData = processData(data, axis);
+                
+                return {
+                    label: axis.label,
+                    values: processedData.values,
+                    tickvals: processedData.tickvals || null,
+                    ticktext: processedData.ticktext || null,
+                    range: processedData.range || null
+                };
+            });
+        }
+
+        // Plot Parallel Coordinates Plot based on selected focus
+        async function plotPCP(focus) {
+            const data = await loadJSON(jsonUrl);
+            const dimensions = createDimensions(data, focus);
+
+            const trace = {
+                type: 'parcoords',
+                line: { color: 'blue' },
+                dimensions: dimensions
+            };
+
+            const layout = {
+                title: 'Interactive Parallel Coordinates Plot',
+                dragmode: "pan" // Enable panning and dragging for axis reordering
+            };
+
+            Plotly.newPlot('parallel-coordinates', [trace], layout);
+        }
+
+        // Load Demographic Focus
+        function loadDemographicFocus() {
+            plotPCP(demographicFocus);
+        }
+
+        // Load Financial Focus
+        function loadFinancialFocus() {
+            plotPCP(financialFocus);
+        }
+
+        // Load the default plot as demographic focus
+        loadDemographicFocus();
+    </script>
+</body>
+</html>
